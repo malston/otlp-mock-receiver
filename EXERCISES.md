@@ -180,10 +180,10 @@ Add file output for transformed logs in JSON format for offline analysis.
 
 ### Acceptance Criteria
 
-- [ ] Create `output/jsonfile.go` with file writer implementation
-- [ ] Add CLI flag `-output-file path/to/logs.json` to main.go
-- [ ] Add CLI flag `-output-format json|jsonl` (default: jsonl for line-delimited JSON)
-- [ ] JSON schema for each log entry:
+- [x] Create `output/jsonfile.go` with file writer implementation
+- [x] Add CLI flag `-output-file path/to/logs.json` to main.go
+- [x] Add CLI flag `-output-format json|jsonl` (default: jsonl for line-delimited JSON)
+- [x] JSON schema for each log entry:
 
   ```json
   {
@@ -198,12 +198,12 @@ Add file output for transformed logs in JSON format for offline analysis.
   }
   ```
 
-- [ ] Implement buffered writes with configurable flush interval
-- [ ] Add CLI flag `-output-buffer-size N` (default: 100 logs)
-- [ ] Add CLI flag `-output-flush-interval 5s` (default: 5 seconds)
-- [ ] Handle file rotation: when file exceeds 100MB, rotate to `logs.json.1`, etc.
-- [ ] Graceful shutdown: flush buffer before exit
-- [ ] Write tests for:
+- [x] Implement buffered writes with configurable flush interval
+- [x] Add CLI flag `-output-buffer-size N` (default: 100 logs)
+- [x] Add CLI flag `-output-flush-interval 5s` (default: 5 seconds)
+- [x] Handle file rotation: when file exceeds 100MB, rotate to `logs.json.1`, etc.
+- [x] Graceful shutdown: flush buffer before exit
+- [x] Write tests for:
   - JSON output is valid and parseable
   - Buffer flushes at configured size
   - Buffer flushes at configured interval

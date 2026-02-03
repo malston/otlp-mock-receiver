@@ -22,6 +22,12 @@ A hands-on learning tool for understanding OpenTelemetry log ingestion and trans
 
 # Disable Prometheus metrics endpoint
 ./otlp-mock-receiver -metrics=false
+
+# Write logs to JSON file
+./otlp-mock-receiver -output-file /tmp/logs.jsonl
+
+# Custom buffer size and flush interval
+./otlp-mock-receiver -output-file /tmp/logs.jsonl -output-buffer-size 50 -output-flush-interval 10s
 ```
 
 ## Endpoints
@@ -113,6 +119,8 @@ otlp-mock-receiver/
 │   └── allowlist.go     # App allowlist with hot-reload
 ├── metrics/
 │   └── metrics.go       # Prometheus metrics
+├── output/
+│   └── jsonfile.go      # JSON file output with buffering
 ├── receiver/
 │   └── receiver.go      # gRPC + HTTP OTLP servers
 ├── routing/

@@ -9,9 +9,11 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"otlp-mock-receiver/allowlist"
 	"otlp-mock-receiver/metrics"
+	"otlp-mock-receiver/output"
 	"otlp-mock-receiver/receiver"
 	"otlp-mock-receiver/transform"
 )
@@ -24,6 +26,10 @@ func main() {
 	sampleDebugOnly := flag.Bool("sample-debug-only", true, "Only sample DEBUG logs (INFO+ always kept)")
 	allowlistFile := flag.String("allowlist", "", "Path to allowlist file (one app per line)")
 	enableMetrics := flag.Bool("metrics", true, "Enable Prometheus metrics endpoint at /metrics")
+	outputFile := flag.String("output-file", "", "Path to JSON output file")
+	outputFormat := flag.String("output-format", "jsonl", "Output format: jsonl (default) or json")
+	outputBufferSize := flag.Int("output-buffer-size", 100, "Number of logs to buffer before flushing")
+	outputFlushInterval := flag.Duration("output-flush-interval", 5*time.Second, "Flush interval for buffered logs")
 	flag.Parse()
 
 	// Configure sampling
@@ -50,6 +56,21 @@ func main() {
 		receiver.SetMetrics(metrics.New())
 	}
 
+	// Configure JSON output
+	var jsonWriter *output.JSONWriter
+	if *outputFile != "" {
+		format := output.FormatJSONL
+		if *outputFormat == "json" {
+			format = output.FormatJSON
+		}
+		var err error
+		jsonWriter, err = output.NewJSONWriter(*outputFile, format, *outputBufferSize, *outputFlushInterval, 100*1024*1024)
+		if err != nil {
+			log.Fatalf("Failed to create JSON writer: %v", err)
+		}
+		receiver.SetJSONWriter(jsonWriter)
+	}
+
 	log.SetFlags(log.Ltime | log.Lmicroseconds)
 
 	log.Println("========================================")
@@ -67,6 +88,9 @@ func main() {
 	}
 	if appAllowlist != nil {
 		log.Printf("  Allowlist:     %s (%d apps)", *allowlistFile, len(appAllowlist.Apps()))
+	}
+	if jsonWriter != nil {
+		log.Printf("  Output:        %s (%s format)", *outputFile, *outputFormat)
 	}
 	log.Println("========================================")
 	log.Println("")
@@ -97,6 +121,9 @@ func main() {
 
 	log.Println("\nShutting down...")
 	close(stopWatcher)
+	if jsonWriter != nil {
+		jsonWriter.Close()
+	}
 	grpcServer.GracefulStop()
 	httpServer.Close()
 

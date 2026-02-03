@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"strings"
 	"sync/atomic"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -25,6 +26,7 @@ import (
 
 	"otlp-mock-receiver/allowlist"
 	"otlp-mock-receiver/metrics"
+	"otlp-mock-receiver/output"
 	"otlp-mock-receiver/routing"
 	"otlp-mock-receiver/transform"
 )
@@ -42,10 +44,16 @@ var samplingConfig *transform.SamplingConfig
 var router = routing.DefaultRouter()
 var appAllowlist *allowlist.Allowlist
 var metricsInstance *metrics.Metrics
+var jsonWriter *output.JSONWriter
 
 // SetMetrics configures Prometheus metrics for the receiver
 func SetMetrics(m *metrics.Metrics) {
 	metricsInstance = m
+}
+
+// SetJSONWriter configures the JSON file output writer
+func SetJSONWriter(w *output.JSONWriter) {
+	jsonWriter = w
 }
 
 // SetSamplingConfig configures sampling for the receiver
@@ -197,6 +205,12 @@ func processLogRecord(resource *resourcepb.Resource, scope *commonpb.Instrumenta
 		metricsInstance.LogsByIndex.WithLabelValues(index).Inc()
 	}
 
+	// Write to JSON file if configured
+	if jsonWriter != nil {
+		entry := buildLogEntry(resource, transformed, index, ruleName, actions)
+		jsonWriter.Write(entry)
+	}
+
 	// Show transformed result
 	if verbose {
 		log.Println("│")
@@ -214,6 +228,43 @@ func processLogRecord(resource *resourcepb.Resource, scope *commonpb.Instrumenta
 
 	log.Println("└─────────────────────────────────────────")
 	log.Println("")
+}
+
+// buildLogEntry creates a LogEntry from a transformed log record
+func buildLogEntry(resource *resourcepb.Resource, lr *logspb.LogRecord, index, ruleName string, actions []string) *output.LogEntry {
+	// Convert timestamp from nanoseconds to ISO8601
+	ts := time.Unix(0, int64(lr.GetTimeUnixNano())).UTC().Format(time.RFC3339Nano)
+
+	// Extract attributes
+	attrs := make(map[string]string)
+	for _, attr := range lr.GetAttributes() {
+		attrs[attr.GetKey()] = formatValue(attr.GetValue())
+	}
+
+	// Extract resource attributes
+	resourceAttrs := make(map[string]string)
+	if resource != nil {
+		for _, attr := range resource.GetAttributes() {
+			resourceAttrs[attr.GetKey()] = formatValue(attr.GetValue())
+		}
+	}
+
+	// Get body
+	body := ""
+	if lr.GetBody() != nil {
+		body = formatValue(lr.GetBody())
+	}
+
+	return &output.LogEntry{
+		Timestamp:      ts,
+		Severity:       lr.GetSeverityText(),
+		SeverityNumber: int32(lr.GetSeverityNumber()),
+		Body:           body,
+		Attributes:     attrs,
+		ResourceAttrs:  resourceAttrs,
+		Routing:        output.RoutingInfo{Index: index, Rule: ruleName},
+		Transforms:     actions,
+	}
 }
 
 // getAppName extracts the application name from log attributes
