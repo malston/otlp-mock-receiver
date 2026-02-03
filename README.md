@@ -172,15 +172,27 @@ applications:
 
 ### Testing gRPC Connectivity
 
-Use `grpcurl` to test gRPC endpoints:
+Use `grpcurl` to test the OTLP LogsService endpoint. Since reflection is not enabled, you need to provide the proto definition:
 
 ```bash
-# With TLS (standard)
-grpcurl -vv otlp-mock-receiver.apps.YOUR_DOMAIN:443 list
+# Create minimal proto file
+cat > /tmp/otlp.proto <<'EOF'
+syntax = "proto3";
+package opentelemetry.proto.collector.logs.v1;
+message ExportLogsServiceRequest {}
+message ExportLogsServiceResponse {}
+service LogsService {
+  rpc Export(ExportLogsServiceRequest) returns (ExportLogsServiceResponse);
+}
+EOF
 
-# With plaintext (if TLS terminates at LB)
-grpcurl -plaintext otlp-mock-receiver.apps.YOUR_DOMAIN:80 list
+# Test gRPC connectivity (sends empty request)
+grpcurl -insecure -import-path /tmp -proto otlp.proto \
+  otlp-mock-receiver.apps.YOUR_DOMAIN:443 \
+  opentelemetry.proto.collector.logs.v1.LogsService/Export
 ```
+
+Expected response: `{}` (empty ExportLogsServiceResponse)
 
 ### Requirements for gRPC
 
