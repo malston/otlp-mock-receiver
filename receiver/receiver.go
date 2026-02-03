@@ -20,6 +20,7 @@ import (
 	logspb "go.opentelemetry.io/proto/otlp/logs/v1"
 	resourcepb "go.opentelemetry.io/proto/otlp/resource/v1"
 
+	"otlp-mock-receiver/allowlist"
 	"otlp-mock-receiver/routing"
 	"otlp-mock-receiver/transform"
 )
@@ -29,15 +30,22 @@ type Stats struct {
 	LogsReceived    atomic.Int64
 	LogsTransformed atomic.Int64
 	LogsDropped     atomic.Int64
+	LogsFiltered    atomic.Int64
 }
 
 var stats Stats
 var samplingConfig *transform.SamplingConfig
 var router = routing.DefaultRouter()
+var appAllowlist *allowlist.Allowlist
 
 // SetSamplingConfig configures sampling for the receiver
 func SetSamplingConfig(cfg *transform.SamplingConfig) {
 	samplingConfig = cfg
+}
+
+// SetAllowlist configures the app allowlist for filtering
+func SetAllowlist(al *allowlist.Allowlist) {
+	appAllowlist = al
 }
 
 // LogsService implements the OTLP Logs gRPC service
@@ -70,6 +78,16 @@ func processLogRecord(resource *resourcepb.Resource, scope *commonpb.Instrumenta
 		stats.LogsDropped.Add(1)
 		if verbose {
 			log.Printf("│ [SAMPLED OUT] Log dropped by sampling (severity: %s)", lr.GetSeverityText())
+		}
+		return
+	}
+
+	// Check allowlist before processing
+	if appAllowlist != nil && !appAllowlist.IsAllowed(lr) {
+		stats.LogsFiltered.Add(1)
+		if verbose {
+			appName := getAppName(lr)
+			log.Printf("│ [FILTERED] %s (not in allowlist)", appName)
 		}
 		return
 	}
@@ -147,6 +165,17 @@ func processLogRecord(resource *resourcepb.Resource, scope *commonpb.Instrumenta
 
 	log.Println("└─────────────────────────────────────────")
 	log.Println("")
+}
+
+// getAppName extracts the application name from log attributes
+func getAppName(lr *logspb.LogRecord) string {
+	for _, attr := range lr.GetAttributes() {
+		key := attr.GetKey()
+		if key == "cf_app_name" || key == "application_name" {
+			return attr.GetValue().GetStringValue()
+		}
+	}
+	return ""
 }
 
 func formatValue(v *commonpb.AnyValue) string {

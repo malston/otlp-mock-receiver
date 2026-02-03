@@ -16,6 +16,9 @@ A hands-on learning tool for understanding OpenTelemetry log ingestion and trans
 
 # Enable log sampling (keep 1 in 10 debug logs)
 ./otlp-mock-receiver -sample-rate 10 -sample-debug-only
+
+# Filter to only allowed apps (with hot-reload)
+./otlp-mock-receiver -allowlist /path/to/apps.txt
 ```
 
 ## Endpoints
@@ -102,6 +105,8 @@ See [EXERCISES.md](EXERCISES.md) for detailed acceptance criteria.
 ```text
 otlp-mock-receiver/
 ├── main.go              # Entry point, CLI flags
+├── allowlist/
+│   └── allowlist.go     # App allowlist with hot-reload
 ├── receiver/
 │   └── receiver.go      # gRPC + HTTP OTLP servers
 ├── routing/

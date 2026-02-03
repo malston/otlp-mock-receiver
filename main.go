@@ -10,6 +10,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"otlp-mock-receiver/allowlist"
 	"otlp-mock-receiver/receiver"
 	"otlp-mock-receiver/transform"
 )
@@ -20,6 +21,7 @@ func main() {
 	verbose := flag.Bool("verbose", false, "Show verbose output including transformed logs")
 	sampleRate := flag.Int("sample-rate", 1, "Keep 1 in N logs (1 = keep all, 10 = keep 10%)")
 	sampleDebugOnly := flag.Bool("sample-debug-only", true, "Only sample DEBUG logs (INFO+ always kept)")
+	allowlistFile := flag.String("allowlist", "", "Path to allowlist file (one app per line)")
 	flag.Parse()
 
 	// Configure sampling
@@ -28,6 +30,17 @@ func main() {
 			SampleRate:      *sampleRate,
 			SampleDebugOnly: *sampleDebugOnly,
 		})
+	}
+
+	// Configure allowlist
+	var appAllowlist *allowlist.Allowlist
+	if *allowlistFile != "" {
+		var err error
+		appAllowlist, err = allowlist.LoadFromFile(*allowlistFile)
+		if err != nil {
+			log.Fatalf("Failed to load allowlist: %v", err)
+		}
+		receiver.SetAllowlist(appAllowlist)
 	}
 
 	log.SetFlags(log.Ltime | log.Lmicroseconds)
@@ -41,6 +54,9 @@ func main() {
 	log.Printf("  Health check:  localhost:%d/health", *httpPort)
 	if *sampleRate > 1 {
 		log.Printf("  Sampling:      1-in-%d (debug-only: %v)", *sampleRate, *sampleDebugOnly)
+	}
+	if appAllowlist != nil {
+		log.Printf("  Allowlist:     %s (%d apps)", *allowlistFile, len(appAllowlist.Apps()))
 	}
 	log.Println("========================================")
 	log.Println("")
@@ -57,12 +73,20 @@ func main() {
 		log.Fatalf("Failed to start HTTP server: %v", err)
 	}
 
+	// Start allowlist hot-reload watcher
+	stopWatcher := make(chan struct{})
+	if appAllowlist != nil && *allowlistFile != "" {
+		go appAllowlist.WatchFile(*allowlistFile, stopWatcher)
+		log.Printf("Watching %s for changes (hot-reload enabled)", *allowlistFile)
+	}
+
 	// Wait for interrupt
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 	<-sigChan
 
 	log.Println("\nShutting down...")
+	close(stopWatcher)
 	grpcServer.GracefulStop()
 	httpServer.Close()
 

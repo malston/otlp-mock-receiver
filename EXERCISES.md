@@ -111,13 +111,13 @@ Make the existing `ShouldAllow` function configurable via CLI and add metrics fo
 
 ### Acceptance Criteria
 
-- [ ] Add CLI flag `-allowlist path/to/apps.txt` to main.go
-- [ ] Allowlist file format: one app name per line, lines starting with `#` are comments
-- [ ] Empty allowlist file or no `-allowlist` flag means allow all apps
-- [ ] Implement hot-reload: watch allowlist file for changes and reload without restart
-- [ ] Add `LogsFiltered` counter to `Stats` struct (separate from `LogsDropped` which is for sampling)
-- [ ] Log filtered app names in verbose mode: "Filtered: app_name (not in allowlist)"
-- [ ] Write tests for:
+- [x] Add CLI flag `-allowlist path/to/apps.txt` to main.go
+- [x] Allowlist file format: one app name per line, lines starting with `#` are comments
+- [x] Empty allowlist file or no `-allowlist` flag means allow all apps
+- [x] Implement hot-reload: watch allowlist file for changes and reload without restart
+- [x] Add `LogsFiltered` counter to `Stats` struct (separate from `LogsDropped` which is for sampling)
+- [x] Log filtered app names in verbose mode: "Filtered: app_name (not in allowlist)"
+- [x] Write tests for:
   - Allowlist with specific apps only allows those apps
   - Empty allowlist allows all apps
   - Case-insensitive matching works
