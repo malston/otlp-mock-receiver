@@ -76,7 +76,7 @@ func main() {
 	// Start allowlist hot-reload watcher
 	stopWatcher := make(chan struct{})
 	if appAllowlist != nil && *allowlistFile != "" {
-		go appAllowlist.WatchFile(*allowlistFile, stopWatcher)
+		go appAllowlist.WatchFile(*allowlistFile, stopWatcher, nil, nil)
 		log.Printf("Watching %s for changes (hot-reload enabled)", *allowlistFile)
 	}
 

@@ -8,8 +8,8 @@ import (
 	"os"
 	"strings"
 	"sync"
-	"time"
 
+	"github.com/fsnotify/fsnotify"
 	logspb "go.opentelemetry.io/proto/otlp/logs/v1"
 )
 
@@ -92,29 +92,45 @@ func (al *Allowlist) Apps() []string {
 }
 
 // WatchFile watches the allowlist file for changes and reloads when modified.
-// Runs until stop channel is closed.
-func (al *Allowlist) WatchFile(path string, stop <-chan struct{}) {
-	ticker := ticker(100 * time.Millisecond)
-	defer ticker.Stop()
+// Runs until stop channel is closed. Accepts optional channels:
+//   - reloaded: signals after each successful reload
+//   - ready: signals when watcher is initialized and listening
+func (al *Allowlist) WatchFile(path string, stop <-chan struct{}, reloaded chan<- struct{}, ready chan<- struct{}) {
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		return
+	}
+	defer watcher.Close()
 
-	var lastModTime time.Time
-	if info, err := os.Stat(path); err == nil {
-		lastModTime = info.ModTime()
+	if err := watcher.Add(path); err != nil {
+		return
+	}
+
+	// Signal that watcher is ready
+	if ready != nil {
+		close(ready)
 	}
 
 	for {
 		select {
 		case <-stop:
 			return
-		case <-ticker.C:
-			info, err := os.Stat(path)
-			if err != nil {
-				continue
+		case event, ok := <-watcher.Events:
+			if !ok {
+				return
 			}
-
-			if info.ModTime().After(lastModTime) {
-				lastModTime = info.ModTime()
+			if event.Has(fsnotify.Write) || event.Has(fsnotify.Create) {
 				al.reload(path)
+				if reloaded != nil {
+					select {
+					case reloaded <- struct{}{}:
+					default:
+					}
+				}
+			}
+		case _, ok := <-watcher.Errors:
+			if !ok {
+				return
 			}
 		}
 	}
@@ -140,9 +156,4 @@ func getAttributeValue(lr *logspb.LogRecord, key string) string {
 		}
 	}
 	return ""
-}
-
-// ticker wraps time.NewTicker for testability
-var ticker = func(d time.Duration) *time.Ticker {
-	return time.NewTicker(d)
 }

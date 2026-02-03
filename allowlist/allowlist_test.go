@@ -177,10 +177,15 @@ func TestHotReload_UpdatesAllowlist(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Start watching
+	// Start watching with reload signal channel
 	stop := make(chan struct{})
+	reloaded := make(chan struct{}, 1)
+	ready := make(chan struct{})
 	defer close(stop)
-	go al.WatchFile(path, stop)
+	go al.WatchFile(path, stop, reloaded, ready)
+
+	// Wait for watcher to be ready
+	<-ready
 
 	// Verify initial state
 	if !al.IsAllowed(makeLogRecord("app-one")) {
@@ -191,13 +196,17 @@ func TestHotReload_UpdatesAllowlist(t *testing.T) {
 	}
 
 	// Update file
-	time.Sleep(100 * time.Millisecond) // Let watcher start
 	if err := os.WriteFile(path, []byte("app-one\napp-two\n"), 0644); err != nil {
 		t.Fatal(err)
 	}
 
-	// Wait for reload
-	time.Sleep(500 * time.Millisecond)
+	// Wait for reload signal
+	select {
+	case <-reloaded:
+		// Reload completed
+	case <-time.After(2 * time.Second):
+		t.Fatal("timeout waiting for reload")
+	}
 
 	// Verify updated state
 	if !al.IsAllowed(makeLogRecord("app-two")) {
