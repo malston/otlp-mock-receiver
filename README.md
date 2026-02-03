@@ -172,7 +172,7 @@ applications:
 
 ### Testing gRPC Connectivity
 
-Use `grpcurl` to test the OTLP LogsService endpoint. Since reflection is not enabled, you need to provide the proto definition:
+Use [grpcurl](https://github.com/fullstorydev/grpcurl#installation) to test the OTLP LogsService endpoint. Since reflection is not enabled, you need to provide the proto definition:
 
 ```bash
 # Create minimal proto file
