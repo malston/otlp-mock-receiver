@@ -13,6 +13,9 @@ A hands-on learning tool for understanding OpenTelemetry log ingestion and trans
 
 # Custom ports
 ./otlp-mock-receiver -grpc-port 4317 -http-port 4318
+
+# Enable log sampling (keep 1 in 10 debug logs)
+./otlp-mock-receiver -sample-rate 10 -sample-debug-only
 ```
 
 ## Endpoints
@@ -40,7 +43,7 @@ processors:
 
 exporters:
   otlp:
-    endpoint: "YOUR_HOMELAB_IP:4317"
+    endpoint: "OTLP_MOCK_RECEIVER_IP_ADDRESS:4317"
     tls:
       insecure: true
 
