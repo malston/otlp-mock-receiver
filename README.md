@@ -213,11 +213,10 @@ If your LB terminates TLS and only speaks HTTP/1.1 to Gorouter, gRPC will fail.
 
 ### Limitations
 
-| Limitation          | Impact                                                |
-| ------------------- | ----------------------------------------------------- |
-| Windows Diego Cells | No HTTP/2 egress -- gRPC won't work                   |
-| WebSockets          | Don't work over HTTP/2 -- use separate HTTP/1.1 route |
-| Route Services      | May break end-to-end HTTP/2 depending on the service  |
+| Limitation          | Impact                                               |
+| ------------------- | ---------------------------------------------------- |
+| Windows Diego Cells | No HTTP/2 egress -- gRPC won't work                  |
+| Route Services      | May break end-to-end HTTP/2 depending on the service |
 
 ### References
 
