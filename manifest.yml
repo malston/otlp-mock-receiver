@@ -6,7 +6,7 @@ applications:
     buildpacks:
       - go_buildpack
     env:
-      GOVERSION: go1.21
+      GOVERSION: go1.24
     command: otlp-mock-receiver -verbose
     health-check-type: http
     health-check-http-endpoint: /health
