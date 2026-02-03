@@ -32,36 +32,152 @@ A hands-on learning tool for understanding OpenTelemetry log ingestion and trans
 
 ## Deploy to TAS/Cloud Foundry
 
+### Prerequisites
+
+- CF CLI installed and authenticated
+- TAS 2.12+ (HTTP/2 enabled by default in gorouter)
+- Go buildpack with Go 1.24+ available
+
+### Step 1: Deploy the App
+
 ```bash
+# Target your org and space
+cf target -o YOUR_ORG -s YOUR_SPACE
+
 # Push the app (no route by default)
 cf push
-
-# Map route with HTTP/2 for gRPC support
-cf map-route otlp-mock-receiver apps.example.com --destination-protocol http2
 ```
 
-The app respects the `PORT` environment variable provided by Cloud Foundry. The HTTP/2 route enables both gRPC (`/grpc.otlp.*`) and HTTP (`/v1/logs`) endpoints.
+### Step 2: Map HTTP/2 Route for gRPC Support
+
+```bash
+# Map route with HTTP/2 protocol
+cf map-route otlp-mock-receiver apps.YOUR_DOMAIN --hostname otlp-mock-receiver --app-protocol http2
+```
+
+### Step 3: Verify Deployment
+
+```bash
+# Check app status
+cf app otlp-mock-receiver
+
+# Verify health endpoint
+curl -sk https://otlp-mock-receiver.apps.YOUR_DOMAIN/health
+
+# Check Prometheus metrics
+curl -sk https://otlp-mock-receiver.apps.YOUR_DOMAIN/metrics
+
+# View app logs (should show "Cloud Foundry (multiplexed)" mode)
+cf logs otlp-mock-receiver --recent | grep -A10 "OTLP Mock Receiver"
+```
+
+Expected startup output:
+
+```
+Mode:          Cloud Foundry (multiplexed)
+Endpoint:      :8080 (gRPC + HTTP)
+Multiplexed gRPC+HTTP server listening on :8080
+```
+
+### Step 4: Send a Test Log
+
+Create a test script to send an OTLP log:
+
+```go
+// test_log.go - run with: go run test_log.go
+package main
+
+import (
+    "bytes"
+    "crypto/tls"
+    "fmt"
+    "net/http"
+    "time"
+
+    "google.golang.org/protobuf/proto"
+    collogspb "go.opentelemetry.io/proto/otlp/collector/logs/v1"
+    commonpb "go.opentelemetry.io/proto/otlp/common/v1"
+    logspb "go.opentelemetry.io/proto/otlp/logs/v1"
+    resourcepb "go.opentelemetry.io/proto/otlp/resource/v1"
+)
+
+func main() {
+    req := &collogspb.ExportLogsServiceRequest{
+        ResourceLogs: []*logspb.ResourceLogs{{
+            Resource: &resourcepb.Resource{
+                Attributes: []*commonpb.KeyValue{
+                    {Key: "application_name", Value: &commonpb.AnyValue{
+                        Value: &commonpb.AnyValue_StringValue{StringValue: "test-app"}}},
+                },
+            },
+            ScopeLogs: []*logspb.ScopeLogs{{
+                LogRecords: []*logspb.LogRecord{{
+                    TimeUnixNano:   uint64(time.Now().UnixNano()),
+                    SeverityNumber: logspb.SeverityNumber_SEVERITY_NUMBER_INFO,
+                    SeverityText:   "INFO",
+                    Body: &commonpb.AnyValue{
+                        Value: &commonpb.AnyValue_StringValue{StringValue: "Test log message"}},
+                }},
+            }},
+        }},
+    }
+
+    data, _ := proto.Marshal(req)
+    client := &http.Client{
+        Transport: &http.Transport{
+            TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+        },
+    }
+    resp, err := client.Post(
+        "https://otlp-mock-receiver.apps.YOUR_DOMAIN/v1/logs",
+        "application/x-protobuf",
+        bytes.NewReader(data),
+    )
+    if err != nil {
+        fmt.Printf("Error: %v\n", err)
+        return
+    }
+    defer resp.Body.Close()
+    fmt.Printf("Response: %s\n", resp.Status)
+}
+```
+
+### Step 5: Verify Log Was Received
+
+```bash
+# Check metrics (should show logs_received_total = 1)
+curl -sk https://otlp-mock-receiver.apps.YOUR_DOMAIN/metrics | grep logs_received
+
+# View processed log in app logs
+cf logs otlp-mock-receiver --recent | grep -A20 "LOG #"
+```
+
+### How It Works on Cloud Foundry
+
+The app detects the `PORT` environment variable and automatically switches to **multiplexed mode**, serving both gRPC and HTTP on a single port using cmux. The HTTP/2 route (`--app-protocol http2`) enables gRPC clients to connect through the gorouter.
 
 **Requirements for gRPC:**
 
 - TAS 2.12+ (HTTP/2 enabled by default in gorouter)
 - Load balancer configured for HTTP/2 end-to-end
-- Route mapped with `--destination-protocol http2`
+- Route mapped with `--app-protocol http2`
 
-To configure TAS to send logs to this receiver:
+### Configure TAS OTel Collector
+
+To send TAS platform logs to this receiver:
 
 ```yaml
 # Using gRPC (recommended)
 exporters:
   otlp:
-    endpoint: "otlp-mock-receiver.apps.example.com:443"
+    endpoint: "otlp-mock-receiver.apps.YOUR_DOMAIN:443"
     tls:
       insecure: false
 
 # Using HTTP
 exporters:
   otlphttp:
-    endpoint: "https://otlp-mock-receiver.apps.example.com"
+    endpoint: "https://otlp-mock-receiver.apps.YOUR_DOMAIN"
 ```
 
 ## Endpoints
