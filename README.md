@@ -30,6 +30,24 @@ A hands-on learning tool for understanding OpenTelemetry log ingestion and trans
 ./otlp-mock-receiver -output-file /tmp/logs.jsonl -output-buffer-size 50 -output-flush-interval 10s
 ```
 
+## Deploy to TAS/Cloud Foundry
+
+```bash
+cf push
+```
+
+The app respects the `PORT` environment variable provided by Cloud Foundry.
+
+To configure TAS to send logs to this receiver, use the app's route as the OTLP endpoint:
+
+```yaml
+exporters:
+  otlphttp:
+    endpoint: "https://otlp-mock-receiver.apps.example.com"
+    tls:
+      insecure: false
+```
+
 ## Endpoints
 
 | Protocol | Port | Path       |

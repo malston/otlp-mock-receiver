@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -31,6 +32,13 @@ func main() {
 	outputBufferSize := flag.Int("output-buffer-size", 100, "Number of logs to buffer before flushing")
 	outputFlushInterval := flag.Duration("output-flush-interval", 5*time.Second, "Flush interval for buffered logs")
 	flag.Parse()
+
+	// Cloud Foundry provides PORT env var - override HTTP port if set
+	if portEnv := os.Getenv("PORT"); portEnv != "" {
+		if port, err := strconv.Atoi(portEnv); err == nil {
+			*httpPort = port
+		}
+	}
 
 	// Configure sampling
 	if *sampleRate > 1 {
