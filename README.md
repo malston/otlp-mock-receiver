@@ -266,10 +266,17 @@ processors:
     timeout: 1s
 
 exporters:
+  # If receiver is deployed to TAS (use domain with TLS)
   otlp:
-    endpoint: "OTLP_RECEIVER_IP_ADDRESS:4317"
+    endpoint: "otlp-mock-receiver.apps.YOUR_DOMAIN:443"
     tls:
-      insecure: true
+      insecure: false
+
+  # If receiver is running externally (VM/bare metal, no TLS)
+  # otlp:
+  #   endpoint: "OTLP_RECEIVER_IP_ADDRESS:4317"
+  #   tls:
+  #     insecure: true
 
 service:
   pipelines:
