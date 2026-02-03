@@ -4,12 +4,21 @@
 package transform
 
 import (
+	"hash/fnv"
 	"regexp"
 	"strings"
 
 	commonpb "go.opentelemetry.io/proto/otlp/common/v1"
 	logspb "go.opentelemetry.io/proto/otlp/logs/v1"
 )
+
+// SamplingConfig controls log sampling behavior
+type SamplingConfig struct {
+	// SampleRate: keep 1 in N logs (1 = keep all, 10 = keep 10%)
+	SampleRate int
+	// SampleDebugOnly: when true, only sample DEBUG severity logs
+	SampleDebugOnly bool
+}
 
 // Config holds transformation configuration
 type Config struct {
@@ -27,6 +36,9 @@ type Config struct {
 
 	// App allowlist (empty = allow all)
 	AllowedApps []string
+
+	// Sampling configuration
+	Sampling *SamplingConfig
 }
 
 // DefaultConfig returns the default transformation config for CF/TAS field standardization
@@ -241,4 +253,34 @@ func DetermineIndex(lr *logspb.LogRecord) string {
 
 	// Default index
 	return "tas_logs"
+}
+
+// ShouldSample determines if a log should be kept based on sampling config.
+// Returns true if the log should be kept, false if it should be dropped.
+func ShouldSample(lr *logspb.LogRecord, cfg *SamplingConfig) bool {
+	// No sampling config or rate of 1 means keep all
+	if cfg == nil || cfg.SampleRate <= 1 {
+		return true
+	}
+
+	severity := lr.GetSeverityNumber()
+
+	// ERROR and above are never sampled
+	if severity >= logspb.SeverityNumber_SEVERITY_NUMBER_ERROR {
+		return true
+	}
+
+	// If SampleDebugOnly is true, only sample DEBUG logs (severity < INFO)
+	if cfg.SampleDebugOnly && severity >= logspb.SeverityNumber_SEVERITY_NUMBER_INFO {
+		return true
+	}
+
+	// Deterministic sampling based on log content hash
+	h := fnv.New32a()
+	if body := lr.GetBody(); body != nil {
+		h.Write([]byte(body.GetStringValue()))
+	}
+	hash := h.Sum32()
+
+	return hash%uint32(cfg.SampleRate) == 0
 }

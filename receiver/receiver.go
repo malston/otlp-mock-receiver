@@ -31,6 +31,12 @@ type Stats struct {
 }
 
 var stats Stats
+var samplingConfig *transform.SamplingConfig
+
+// SetSamplingConfig configures sampling for the receiver
+func SetSamplingConfig(cfg *transform.SamplingConfig) {
+	samplingConfig = cfg
+}
 
 // LogsService implements the OTLP Logs gRPC service
 type LogsService struct {
@@ -57,6 +63,15 @@ func (s *LogsService) Export(ctx context.Context, req *collogspb.ExportLogsServi
 }
 
 func processLogRecord(resource *resourcepb.Resource, scope *commonpb.InstrumentationScope, lr *logspb.LogRecord, verbose bool) {
+	// Check sampling before processing
+	if !transform.ShouldSample(lr, samplingConfig) {
+		stats.LogsDropped.Add(1)
+		if verbose {
+			log.Printf("│ [SAMPLED OUT] Log dropped by sampling (severity: %s)", lr.GetSeverityText())
+		}
+		return
+	}
+
 	log.Println("┌─────────────────────────────────────────")
 	log.Printf("│ LOG #%d", stats.LogsReceived.Load())
 	log.Println("├─────────────────────────────────────────")
