@@ -10,7 +10,7 @@ import (
 	logspb "go.opentelemetry.io/proto/otlp/logs/v1"
 )
 
-// RoutingRule defines a single routing rule
+// RoutingRule defines a single routing rule (for configuration)
 type RoutingRule struct {
 	Name       string            // Rule name for logging
 	Conditions map[string]string // Attribute name → regex pattern
@@ -18,13 +18,21 @@ type RoutingRule struct {
 	Priority   int               // Lower = higher priority
 }
 
+// compiledRule is a routing rule with pre-compiled regexes
+type compiledRule struct {
+	Name       string
+	Conditions map[string]*regexp.Regexp // Pre-compiled patterns
+	Index      string
+	Priority   int
+}
+
 // Router holds routing rules and applies them to logs
 type Router struct {
-	rules        []RoutingRule
+	rules        []compiledRule
 	defaultIndex string
 }
 
-// NewRouter creates a router with custom rules
+// NewRouter creates a router with custom rules, pre-compiling regex patterns
 func NewRouter(rules []RoutingRule) *Router {
 	// Sort rules by priority (lower = higher priority)
 	sorted := make([]RoutingRule, len(rules))
@@ -33,8 +41,27 @@ func NewRouter(rules []RoutingRule) *Router {
 		return sorted[i].Priority < sorted[j].Priority
 	})
 
+	// Compile all regex patterns
+	compiled := make([]compiledRule, len(sorted))
+	for i, rule := range sorted {
+		compiled[i] = compiledRule{
+			Name:       rule.Name,
+			Conditions: make(map[string]*regexp.Regexp),
+			Index:      rule.Index,
+			Priority:   rule.Priority,
+		}
+		for attr, pattern := range rule.Conditions {
+			// Severity patterns are not regexes, store nil
+			if attr == "_severity" {
+				compiled[i].Conditions[attr] = nil
+				continue
+			}
+			compiled[i].Conditions[attr] = regexp.MustCompile(pattern)
+		}
+	}
+
 	return &Router{
-		rules:        sorted,
+		rules:        compiled,
 		defaultIndex: "tas_logs",
 	}
 }
@@ -81,24 +108,23 @@ func (r *Router) Route(lr *logspb.LogRecord) (index string, ruleName string) {
 }
 
 // matchesRule checks if a log matches all conditions of a rule
-func (r *Router) matchesRule(lr *logspb.LogRecord, rule RoutingRule) bool {
-	for attrName, pattern := range rule.Conditions {
-		// Special handling for severity
+func (r *Router) matchesRule(lr *logspb.LogRecord, rule compiledRule) bool {
+	for attrName, compiledPattern := range rule.Conditions {
+		// Special handling for severity (stored as nil pattern)
 		if attrName == "_severity" {
-			if !r.matchesSeverity(lr, pattern) {
+			if !r.matchesSeverity(lr, "error") { // severity rules always check for error+
 				return false
 			}
 			continue
 		}
 
-		// Regular attribute matching
+		// Regular attribute matching with pre-compiled regex
 		value := getAttributeValue(lr, attrName)
 		if value == "" {
 			return false
 		}
 
-		matched, err := regexp.MatchString(pattern, value)
-		if err != nil || !matched {
+		if !compiledPattern.MatchString(value) {
 			return false
 		}
 	}

@@ -6,6 +6,7 @@ package transform
 import (
 	"hash/fnv"
 	"regexp"
+	"strconv"
 	"strings"
 
 	commonpb "go.opentelemetry.io/proto/otlp/common/v1"
@@ -100,7 +101,7 @@ func ApplyWithConfig(lr *logspb.LogRecord, cfg *Config) (*logspb.LogRecord, []st
 	// 3. PCI redaction
 	for i, pattern := range cfg.PCIPatterns {
 		if redactPattern(lr, pattern, "[PCI-REDACTED]") {
-			actions = append(actions, "Redacted PCI pattern #"+string(rune('1'+i)))
+			actions = append(actions, "Redacted PCI pattern #"+strconv.Itoa(i+1))
 		}
 	}
 
