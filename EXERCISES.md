@@ -28,6 +28,8 @@ Extend the field rename configuration to handle additional TAS/CF log attributes
 go test ./transform/... -v -run TestFieldRenames
 ```
 
+**Solution:** [b0efd77](https://github.com/malston/otlp-mock-receiver/commit/b0efd77)
+
 ---
 
 ## Exercise 2: Implement Log Sampling (Keep 1-in-N Debug Logs)
@@ -61,6 +63,8 @@ Add configurable sampling to reduce debug log volume while keeping all error/war
 go test ./transform/... -v -run TestSampling
 ./otlp-mock-receiver -sample-rate 10 -sample-debug-only
 ```
+
+**Solution:** [550b05f](https://github.com/malston/otlp-mock-receiver/commit/550b05f)
 
 ---
 
@@ -103,6 +107,8 @@ go test ./routing/... -v
 ./otlp-mock-receiver -verbose  # Should show "Routed to: tas_xxx via rule: yyy"
 ```
 
+**Solution:** [d92e215](https://github.com/malston/otlp-mock-receiver/commit/d92e215)
+
 ---
 
 ## Exercise 4: Implement App Allowlist Filtering
@@ -132,6 +138,8 @@ echo -e "my-app\nother-app" > /tmp/allowlist.txt
 ./otlp-mock-receiver -allowlist /tmp/allowlist.txt -verbose
 # In another terminal, modify allowlist and verify reload
 ```
+
+**Solution:** [7c9ffc5](https://github.com/malston/otlp-mock-receiver/commit/7c9ffc5)
 
 ---
 
@@ -171,6 +179,8 @@ otlp_receiver_logs_received_total 42
 otlp_receiver_logs_by_severity_total{severity="INFO"} 30
 otlp_receiver_logs_by_severity_total{severity="ERROR"} 12
 ```
+
+**Solution:** [86811ee](https://github.com/malston/otlp-mock-receiver/commit/86811ee)
 
 ---
 
@@ -217,6 +227,8 @@ Add file output for transformed logs in JSON format for offline analysis.
 # Send some logs, then:
 cat /tmp/logs.jsonl | jq .  # Should be valid JSON per line
 ```
+
+**Solution:** [837871d](https://github.com/malston/otlp-mock-receiver/commit/837871d)
 
 ---
 
