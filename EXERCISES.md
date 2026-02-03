@@ -70,8 +70,8 @@ Extend the existing `DetermineIndex` function to support configurable routing ru
 
 ### Acceptance Criteria
 
-- [ ] Create `routing/routing.go` with routing logic (move from transform.go)
-- [ ] Define `RoutingRule` struct:
+- [x] Create `routing/routing.go` with routing logic (move from transform.go)
+- [x] Define `RoutingRule` struct:
 
   ```go
   type RoutingRule struct {
@@ -82,19 +82,19 @@ Extend the existing `DetermineIndex` function to support configurable routing ru
   }
   ```
 
-- [ ] Implement `Router` struct that holds ordered rules
-- [ ] Implement `Router.Route(lr *logspb.LogRecord) string` method
-- [ ] Default routing rules (in priority order):
+- [x] Implement `Router` struct that holds ordered rules
+- [x] Implement `Router.Route(lr *logspb.LogRecord) string` method
+- [x] Default routing rules (in priority order):
   1. Severity >= ERROR → `tas_errors`
   2. App name matches `^security-` → `tas_security`
   3. App name matches `^audit-` → `tas_audit`
   4. Space name matches `production` → `tas_prod`
   5. Default → `tas_logs`
-- [ ] Add `index` attribute to transformed log records
-- [ ] Log which routing rule matched in verbose mode
-- [ ] Write tests for each routing rule
-- [ ] Write test for rule priority (first match wins)
-- [ ] Write test for default fallback when no rules match
+- [x] Add `index` attribute to transformed log records
+- [x] Log which routing rule matched in verbose mode
+- [x] Write tests for each routing rule
+- [x] Write test for rule priority (first match wins)
+- [x] Write test for default fallback when no rules match
 
 ### Verification
 

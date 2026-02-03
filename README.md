@@ -104,6 +104,8 @@ otlp-mock-receiver/
 ├── main.go              # Entry point, CLI flags
 ├── receiver/
 │   └── receiver.go      # gRPC + HTTP OTLP servers
+├── routing/
+│   └── routing.go       # Index routing rules
 └── transform/
     └── transform.go     # Transformation logic
 ```

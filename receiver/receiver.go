@@ -20,6 +20,7 @@ import (
 	logspb "go.opentelemetry.io/proto/otlp/logs/v1"
 	resourcepb "go.opentelemetry.io/proto/otlp/resource/v1"
 
+	"otlp-mock-receiver/routing"
 	"otlp-mock-receiver/transform"
 )
 
@@ -32,6 +33,7 @@ type Stats struct {
 
 var stats Stats
 var samplingConfig *transform.SamplingConfig
+var router = routing.DefaultRouter()
 
 // SetSamplingConfig configures sampling for the receiver
 func SetSamplingConfig(cfg *transform.SamplingConfig) {
@@ -120,6 +122,12 @@ func processLogRecord(resource *resourcepb.Resource, scope *commonpb.Instrumenta
 	for _, action := range actions {
 		log.Printf("│   ✓ %s", action)
 	}
+
+	// Apply routing
+	index, ruleName := router.Route(transformed)
+	transform.SetAttribute(transformed, "index", index)
+	log.Printf("│   ✓ Routed to: %s (rule: %s)", index, ruleName)
+
 	stats.LogsTransformed.Add(1)
 
 	// Show transformed result
