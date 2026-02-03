@@ -6,11 +6,14 @@ package main
 import (
 	"flag"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"strconv"
 	"syscall"
 	"time"
+
+	"google.golang.org/grpc"
 
 	"otlp-mock-receiver/allowlist"
 	"otlp-mock-receiver/metrics"
@@ -81,12 +84,20 @@ func main() {
 
 	log.SetFlags(log.Ltime | log.Lmicroseconds)
 
+	// Detect Cloud Foundry environment
+	isCloudFoundry := os.Getenv("PORT") != ""
+
 	log.Println("========================================")
 	log.Println("  OTLP Mock Receiver")
 	log.Println("  Practice environment for TAS logging")
 	log.Println("========================================")
-	log.Printf("  gRPC endpoint: localhost:%d", *grpcPort)
-	log.Printf("  HTTP endpoint: localhost:%d/v1/logs", *httpPort)
+	if isCloudFoundry {
+		log.Printf("  Mode:          Cloud Foundry (multiplexed)")
+		log.Printf("  Endpoint:      :%d (gRPC + HTTP)", *httpPort)
+	} else {
+		log.Printf("  gRPC endpoint: localhost:%d", *grpcPort)
+		log.Printf("  HTTP endpoint: localhost:%d/v1/logs", *httpPort)
+	}
 	log.Printf("  Health check:  localhost:%d/health", *httpPort)
 	if *enableMetrics {
 		log.Printf("  Metrics:       localhost:%d/metrics", *httpPort)
@@ -103,16 +114,28 @@ func main() {
 	log.Println("========================================")
 	log.Println("")
 
-	// Start gRPC server
-	grpcServer, err := receiver.StartGRPC(*grpcPort, *verbose)
-	if err != nil {
-		log.Fatalf("Failed to start gRPC server: %v", err)
-	}
+	var grpcServer *grpc.Server
+	var httpServer *http.Server
 
-	// Start HTTP server
-	httpServer, err := receiver.StartHTTP(*httpPort, *verbose)
-	if err != nil {
-		log.Fatalf("Failed to start HTTP server: %v", err)
+	if isCloudFoundry {
+		// Cloud Foundry: use multiplexed server on single port
+		var err error
+		grpcServer, httpServer, err = receiver.StartMultiplexed(*httpPort, *verbose)
+		if err != nil {
+			log.Fatalf("Failed to start multiplexed server: %v", err)
+		}
+	} else {
+		// Local development: use separate servers
+		var err error
+		grpcServer, err = receiver.StartGRPC(*grpcPort, *verbose)
+		if err != nil {
+			log.Fatalf("Failed to start gRPC server: %v", err)
+		}
+
+		httpServer, err = receiver.StartHTTP(*httpPort, *verbose)
+		if err != nil {
+			log.Fatalf("Failed to start HTTP server: %v", err)
+		}
 	}
 
 	// Start allowlist hot-reload watcher

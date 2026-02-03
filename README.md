@@ -33,19 +33,35 @@ A hands-on learning tool for understanding OpenTelemetry log ingestion and trans
 ## Deploy to TAS/Cloud Foundry
 
 ```bash
+# Push the app (no route by default)
 cf push
+
+# Map route with HTTP/2 for gRPC support
+cf map-route otlp-mock-receiver apps.example.com --destination-protocol http2
 ```
 
-The app respects the `PORT` environment variable provided by Cloud Foundry.
+The app respects the `PORT` environment variable provided by Cloud Foundry. The HTTP/2 route enables both gRPC (`/grpc.otlp.*`) and HTTP (`/v1/logs`) endpoints.
 
-To configure TAS to send logs to this receiver, use the app's route as the OTLP endpoint:
+**Requirements for gRPC:**
+
+- TAS 2.12+ (HTTP/2 enabled by default in gorouter)
+- Load balancer configured for HTTP/2 end-to-end
+- Route mapped with `--destination-protocol http2`
+
+To configure TAS to send logs to this receiver:
 
 ```yaml
+# Using gRPC (recommended)
+exporters:
+  otlp:
+    endpoint: "otlp-mock-receiver.apps.example.com:443"
+    tls:
+      insecure: false
+
+# Using HTTP
 exporters:
   otlphttp:
     endpoint: "https://otlp-mock-receiver.apps.example.com"
-    tls:
-      insecure: false
 ```
 
 ## Endpoints

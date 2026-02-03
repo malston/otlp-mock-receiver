@@ -16,6 +16,9 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/soheilhy/cmux"
+	"golang.org/x/net/http2"
+	"golang.org/x/net/http2/h2c"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 
@@ -320,6 +323,63 @@ func StartGRPC(port int, verbose bool) (*grpc.Server, error) {
 	}()
 
 	return server, nil
+}
+
+// StartMultiplexed starts both gRPC and HTTP servers on the same port using cmux.
+// This is useful for Cloud Foundry deployments where only one port is available.
+func StartMultiplexed(port int, verbose bool) (*grpc.Server, *http.Server, error) {
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to listen on port %d: %w", port, err)
+	}
+
+	// Create cmux multiplexer
+	m := cmux.New(lis)
+
+	// Match gRPC (HTTP/2 with content-type application/grpc)
+	grpcL := m.MatchWithWriters(cmux.HTTP2MatchHeaderFieldSendSettings("content-type", "application/grpc"))
+	// Match HTTP (everything else)
+	httpL := m.Match(cmux.Any())
+
+	// Create gRPC server
+	grpcServer := grpc.NewServer()
+	collogspb.RegisterLogsServiceServer(grpcServer, &LogsService{verbose: verbose})
+
+	// Create HTTP server with h2c support for HTTP/2 cleartext
+	mux := http.NewServeMux()
+	handler := &httpHandler{verbose: verbose}
+	mux.HandleFunc("/v1/logs", handler.handleLogs)
+	mux.HandleFunc("/health", handleHealth)
+	if metricsInstance != nil {
+		mux.Handle("/metrics", promhttp.HandlerFor(metricsInstance.Registry(), promhttp.HandlerOpts{}))
+	}
+
+	h2s := &http2.Server{}
+	httpServer := &http.Server{
+		Handler: h2c.NewHandler(mux, h2s),
+	}
+
+	// Start servers
+	go func() {
+		if err := grpcServer.Serve(grpcL); err != nil {
+			log.Printf("gRPC server error: %v", err)
+		}
+	}()
+
+	go func() {
+		if err := httpServer.Serve(httpL); err != http.ErrServerClosed {
+			log.Printf("HTTP server error: %v", err)
+		}
+	}()
+
+	go func() {
+		log.Printf("Multiplexed gRPC+HTTP server listening on :%d", port)
+		if err := m.Serve(); err != nil {
+			log.Printf("cmux error: %v", err)
+		}
+	}()
+
+	return grpcServer, httpServer, nil
 }
 
 // StartHTTP starts the HTTP server for OTLP/HTTP log ingestion

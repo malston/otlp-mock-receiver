@@ -10,3 +10,4 @@ applications:
     command: otlp-mock-receiver -verbose
     health-check-type: http
     health-check-http-endpoint: /health
+    no-route: true
