@@ -19,6 +19,9 @@ A hands-on learning tool for understanding OpenTelemetry log ingestion and trans
 
 # Filter to only allowed apps (with hot-reload)
 ./otlp-mock-receiver -allowlist /path/to/apps.txt
+
+# Disable Prometheus metrics endpoint
+./otlp-mock-receiver -metrics=false
 ```
 
 ## Endpoints
@@ -28,6 +31,7 @@ A hands-on learning tool for understanding OpenTelemetry log ingestion and trans
 | gRPC     | 4317 | -          |
 | HTTP     | 4318 | `/v1/logs` |
 | Health   | 4318 | `/health`  |
+| Metrics  | 4318 | `/metrics` |
 
 ## Configure TAS to Send Logs Here
 
@@ -107,6 +111,8 @@ otlp-mock-receiver/
 ├── main.go              # Entry point, CLI flags
 ├── allowlist/
 │   └── allowlist.go     # App allowlist with hot-reload
+├── metrics/
+│   └── metrics.go       # Prometheus metrics
 ├── receiver/
 │   └── receiver.go      # gRPC + HTTP OTLP servers
 ├── routing/

@@ -10,8 +10,11 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"strings"
 	"sync/atomic"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 
@@ -21,6 +24,7 @@ import (
 	resourcepb "go.opentelemetry.io/proto/otlp/resource/v1"
 
 	"otlp-mock-receiver/allowlist"
+	"otlp-mock-receiver/metrics"
 	"otlp-mock-receiver/routing"
 	"otlp-mock-receiver/transform"
 )
@@ -37,6 +41,12 @@ var stats Stats
 var samplingConfig *transform.SamplingConfig
 var router = routing.DefaultRouter()
 var appAllowlist *allowlist.Allowlist
+var metricsInstance *metrics.Metrics
+
+// SetMetrics configures Prometheus metrics for the receiver
+func SetMetrics(m *metrics.Metrics) {
+	metricsInstance = m
+}
 
 // SetSamplingConfig configures sampling for the receiver
 func SetSamplingConfig(cfg *transform.SamplingConfig) {
@@ -64,6 +74,9 @@ func (s *LogsService) Export(ctx context.Context, req *collogspb.ExportLogsServi
 
 			for _, logRecord := range scopeLogs.GetLogRecords() {
 				stats.LogsReceived.Add(1)
+				if metricsInstance != nil {
+					metricsInstance.LogsReceived.Inc()
+				}
 				processLogRecord(resource, scope, logRecord, s.verbose)
 			}
 		}
@@ -73,9 +86,21 @@ func (s *LogsService) Export(ctx context.Context, req *collogspb.ExportLogsServi
 }
 
 func processLogRecord(resource *resourcepb.Resource, scope *commonpb.InstrumentationScope, lr *logspb.LogRecord, verbose bool) {
+	// Record severity metric
+	if metricsInstance != nil {
+		severity := lr.GetSeverityText()
+		if severity == "" {
+			severity = "UNSPECIFIED"
+		}
+		metricsInstance.LogsBySeverity.WithLabelValues(severity).Inc()
+	}
+
 	// Check sampling before processing
 	if !transform.ShouldSample(lr, samplingConfig) {
 		stats.LogsDropped.Add(1)
+		if metricsInstance != nil {
+			metricsInstance.LogsDropped.WithLabelValues("sampled").Inc()
+		}
 		if verbose {
 			log.Printf("│ [SAMPLED OUT] Log dropped by sampling (severity: %s)", lr.GetSeverityText())
 		}
@@ -85,6 +110,9 @@ func processLogRecord(resource *resourcepb.Resource, scope *commonpb.Instrumenta
 	// Check allowlist before processing
 	if appAllowlist != nil && !appAllowlist.IsAllowed(lr) {
 		stats.LogsFiltered.Add(1)
+		if metricsInstance != nil {
+			metricsInstance.LogsDropped.WithLabelValues("filtered").Inc()
+		}
 		if verbose {
 			appName := getAppName(lr)
 			log.Printf("│ [FILTERED] %s (not in allowlist)", appName)
@@ -136,9 +164,22 @@ func processLogRecord(resource *resourcepb.Resource, scope *commonpb.Instrumenta
 	log.Println("│")
 	log.Println("│ ─── Applying Transforms ───")
 
+	var timer *prometheus.Timer
+	if metricsInstance != nil {
+		timer = metricsInstance.NewTransformTimer()
+	}
+
 	transformed, actions := transform.Apply(lr)
 	for _, action := range actions {
 		log.Printf("│   ✓ %s", action)
+		// Track specific transform actions in metrics
+		if metricsInstance != nil {
+			if strings.HasPrefix(action, "Redacted PCI") {
+				metricsInstance.PCIRedactions.Inc()
+			} else if strings.HasPrefix(action, "Truncated body") {
+				metricsInstance.BodyTruncations.Inc()
+			}
+		}
 	}
 
 	// Apply routing
@@ -146,7 +187,15 @@ func processLogRecord(resource *resourcepb.Resource, scope *commonpb.Instrumenta
 	transform.SetAttribute(transformed, "index", index)
 	log.Printf("│   ✓ Routed to: %s (rule: %s)", index, ruleName)
 
+	if timer != nil {
+		timer.ObserveDuration()
+	}
+
 	stats.LogsTransformed.Add(1)
+	if metricsInstance != nil {
+		metricsInstance.LogsTransformed.Inc()
+		metricsInstance.LogsByIndex.WithLabelValues(index).Inc()
+	}
 
 	// Show transformed result
 	if verbose {
@@ -230,6 +279,11 @@ func StartHTTP(port int, verbose bool) (*http.Server, error) {
 	mux.HandleFunc("/v1/logs", handler.handleLogs)
 	mux.HandleFunc("/health", handleHealth)
 
+	// Add Prometheus metrics endpoint if metrics are configured
+	if metricsInstance != nil {
+		mux.Handle("/metrics", promhttp.HandlerFor(metricsInstance.Registry(), promhttp.HandlerOpts{}))
+	}
+
 	server := &http.Server{
 		Addr:    fmt.Sprintf(":%d", port),
 		Handler: mux,
@@ -277,6 +331,9 @@ func (h *httpHandler) handleLogs(w http.ResponseWriter, r *http.Request) {
 			scope := scopeLogs.GetScope()
 			for _, logRecord := range scopeLogs.GetLogRecords() {
 				stats.LogsReceived.Add(1)
+				if metricsInstance != nil {
+					metricsInstance.LogsReceived.Inc()
+				}
 				processLogRecord(resource, scope, logRecord, h.verbose)
 			}
 		}

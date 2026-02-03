@@ -11,6 +11,7 @@ import (
 	"syscall"
 
 	"otlp-mock-receiver/allowlist"
+	"otlp-mock-receiver/metrics"
 	"otlp-mock-receiver/receiver"
 	"otlp-mock-receiver/transform"
 )
@@ -22,6 +23,7 @@ func main() {
 	sampleRate := flag.Int("sample-rate", 1, "Keep 1 in N logs (1 = keep all, 10 = keep 10%)")
 	sampleDebugOnly := flag.Bool("sample-debug-only", true, "Only sample DEBUG logs (INFO+ always kept)")
 	allowlistFile := flag.String("allowlist", "", "Path to allowlist file (one app per line)")
+	enableMetrics := flag.Bool("metrics", true, "Enable Prometheus metrics endpoint at /metrics")
 	flag.Parse()
 
 	// Configure sampling
@@ -43,6 +45,11 @@ func main() {
 		receiver.SetAllowlist(appAllowlist)
 	}
 
+	// Configure metrics
+	if *enableMetrics {
+		receiver.SetMetrics(metrics.New())
+	}
+
 	log.SetFlags(log.Ltime | log.Lmicroseconds)
 
 	log.Println("========================================")
@@ -52,6 +59,9 @@ func main() {
 	log.Printf("  gRPC endpoint: localhost:%d", *grpcPort)
 	log.Printf("  HTTP endpoint: localhost:%d/v1/logs", *httpPort)
 	log.Printf("  Health check:  localhost:%d/health", *httpPort)
+	if *enableMetrics {
+		log.Printf("  Metrics:       localhost:%d/metrics", *httpPort)
+	}
 	if *sampleRate > 1 {
 		log.Printf("  Sampling:      1-in-%d (debug-only: %v)", *sampleRate, *sampleDebugOnly)
 	}

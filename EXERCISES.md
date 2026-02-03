@@ -141,10 +141,10 @@ Expose Prometheus-compatible metrics for operational monitoring.
 
 ### Acceptance Criteria
 
-- [ ] Create `metrics/metrics.go` with Prometheus client integration
-- [ ] Add dependency: `go get github.com/prometheus/client_golang/prometheus`
-- [ ] Expose metrics endpoint at `/metrics` on the HTTP port
-- [ ] Required metrics (all with `otlp_receiver_` prefix):
+- [x] Create `metrics/metrics.go` with Prometheus client integration
+- [x] Add dependency: `go get github.com/prometheus/client_golang/prometheus`
+- [x] Expose metrics endpoint at `/metrics` on the HTTP port
+- [x] Required metrics (all with `otlp_receiver_` prefix):
   - `logs_received_total` (counter) -- total logs received
   - `logs_transformed_total` (counter) -- logs after transformation
   - `logs_dropped_total` (counter, labels: `reason=[sampled|filtered]`)
@@ -153,9 +153,9 @@ Expose Prometheus-compatible metrics for operational monitoring.
   - `transform_duration_seconds` (histogram) -- time spent transforming
   - `pci_redactions_total` (counter) -- PCI patterns redacted
   - `body_truncations_total` (counter) -- bodies truncated
-- [ ] Replace atomic counters in `receiver.go` with Prometheus counters
-- [ ] Write tests verifying metrics are incremented correctly
-- [ ] Add `-metrics` CLI flag to enable/disable metrics (default: enabled)
+- [x] Replace atomic counters in `receiver.go` with Prometheus counters
+- [x] Write tests verifying metrics are incremented correctly
+- [x] Add `-metrics` CLI flag to enable/disable metrics (default: enabled)
 
 ### Verification
 
