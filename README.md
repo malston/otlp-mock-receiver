@@ -156,11 +156,61 @@ cf logs otlp-mock-receiver --recent | grep -A20 "LOG #"
 
 The app detects the `PORT` environment variable and automatically switches to **multiplexed mode**, serving both gRPC and HTTP on a single port using cmux. The HTTP/2 route (`--app-protocol http2`) enables gRPC clients to connect through the gorouter.
 
-**Requirements for gRPC:**
+When you set `protocol: http2` on the route, Gorouter sends all traffic to that app over HTTP/2 -- even if the client connected via HTTP/1.1. This is critical for gRPC since it requires HTTP/2 end-to-end.
 
-- TAS 2.12+ (HTTP/2 enabled by default in gorouter)
-- Load balancer configured for HTTP/2 end-to-end
+### Alternative: Manifest-Based Route Configuration
+
+Instead of using the CLI, you can configure HTTP/2 routes in your manifest:
+
+```yaml
+applications:
+  - name: otlp-mock-receiver
+    routes:
+      - route: otlp-mock-receiver.apps.YOUR_DOMAIN
+        protocol: http2
+```
+
+### Testing gRPC Connectivity
+
+Use `grpcurl` to test gRPC endpoints:
+
+```bash
+# With TLS (standard)
+grpcurl -vv otlp-mock-receiver.apps.YOUR_DOMAIN:443 list
+
+# With plaintext (if TLS terminates at LB)
+grpcurl -plaintext otlp-mock-receiver.apps.YOUR_DOMAIN:80 list
+```
+
+### Requirements for gRPC
+
+Every network hop must use HTTP/2 for gRPC to work:
+
+- Load balancer → Gorouter: HTTP/2
+- Gorouter → App container: HTTP/2
 - Route mapped with `--app-protocol http2`
+
+**Load Balancer Requirements:**
+
+Your LB must either:
+
+- Pass through HTTP/2 (Layer 4 / TCP mode), or
+- Terminate TLS and re-establish HTTP/2 to Gorouter with ALPN negotiation
+
+If your LB terminates TLS and only speaks HTTP/1.1 to Gorouter, gRPC will fail.
+
+### Limitations
+
+| Limitation          | Impact                                                |
+| ------------------- | ----------------------------------------------------- |
+| Windows Diego Cells | No HTTP/2 egress -- gRPC won't work                   |
+| WebSockets          | Don't work over HTTP/2 -- use separate HTTP/1.1 route |
+| Route Services      | May break end-to-end HTTP/2 depending on the service  |
+
+### References
+
+- [TAS HTTP/2 Protocol Support](https://techdocs.broadcom.com/us/en/vmware-tanzu/platform/elastic-application-runtime/10-2/eart/supporting-http2.html)
+- [Cloud Foundry HTTP/2 Protocol](https://docs.cloudfoundry.org/devguide/http2-protocol.html)
 
 ### Configure TAS OTel Collector
 
