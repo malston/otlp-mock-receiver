@@ -267,7 +267,7 @@ processors:
 
 exporters:
   otlp:
-    endpoint: "OTLP_MOCK_RECEIVER_IP_ADDRESS:4317"
+    endpoint: "OTLP_RECEIVER_IP_ADDRESS:4317"
     tls:
       insecure: true
 
