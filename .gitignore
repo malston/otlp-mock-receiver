@@ -39,7 +39,7 @@ otlp-mock-receiver
 # Claude
 **/CLAUDE.md
 !.claude/CLAUDE.md
-!/CLAUDE.md
+!/CLAUDE.local.md
 .claude/*.local.md
 
 # Deployment script state and config
