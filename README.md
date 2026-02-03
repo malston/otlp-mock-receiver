@@ -88,12 +88,14 @@ Configured in `transform/transform.go`:
 
 ## Exercises
 
-1. Add more field renames for CF/TAS standardization
-2. Implement log sampling (keep 1-in-N debug logs)
-3. Add routing logic to determine Splunk index
-4. Implement app allowlist filtering
-5. Add metrics/counters for monitoring
-6. Write transformed logs to a JSON file
+See [EXERCISES.md](EXERCISES.md) for detailed acceptance criteria.
+
+1. [Add more field renames for CF/TAS standardization](EXERCISES.md#exercise-1-add-more-field-renames-for-cftas-standardization)
+2. [Implement log sampling (keep 1-in-N debug logs)](EXERCISES.md#exercise-2-implement-log-sampling-keep-1-in-n-debug-logs)
+3. [Add routing logic to determine Splunk index](EXERCISES.md#exercise-3-add-routing-logic-to-determine-splunk-index)
+4. [Implement app allowlist filtering](EXERCISES.md#exercise-4-implement-app-allowlist-filtering)
+5. [Add metrics/counters for monitoring](EXERCISES.md#exercise-5-add-metricscounters-for-monitoring)
+6. [Write transformed logs to a JSON file](EXERCISES.md#exercise-6-write-transformed-logs-to-a-json-file)
 
 ## Project Structure
 
