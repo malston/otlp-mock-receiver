@@ -2,6 +2,8 @@
 
 A hands-on learning tool for understanding OpenTelemetry log ingestion and transformation, designed to simulate Cribl-like processing for TAS logs.
 
+**[Feature Documentation](docs/features.md)** - Detailed guide to all features including field renames, log sampling, index routing, allowlist filtering, Prometheus metrics, and JSON file output.
+
 ## Quick Start
 
 ```bash
