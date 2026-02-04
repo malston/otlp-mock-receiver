@@ -252,6 +252,8 @@ exporters:
 
 ## Configure TAS to Send Logs Here
 
+> **Warning:** If the receiver is deployed to TAS, its own logs will flow through the OTel Collector, creating an infinite loop. Use the filter processor below to exclude the receiver's logs.
+
 In OpsManager, add this OTel config to **TAS Tile → System Logging → OpenTelemetry Collector Configuration**:
 
 ```yaml
@@ -262,6 +264,14 @@ receivers:
       http:
 
 processors:
+  # Filter out the receiver's own logs to prevent infinite loop
+  filter:
+    logs:
+      exclude:
+        match_type: strict
+        resource_attributes:
+          - key: cf.app.name
+            value: otlp-mock-receiver
   batch:
     timeout: 1s
 
@@ -282,7 +292,7 @@ service:
   pipelines:
     logs:
       receivers: [otlp]
-      processors: [batch]
+      processors: [filter, batch]
       exporters: [otlp]
 ```
 
