@@ -30,6 +30,23 @@ A hands-on learning tool for understanding OpenTelemetry log ingestion and trans
 ./otlp-mock-receiver -output-file /tmp/logs.jsonl -output-buffer-size 50 -output-flush-interval 10s
 ```
 
+## Local Testing
+
+Send a test log to the receiver running locally:
+
+```bash
+# Start the receiver in one terminal
+./otlp-mock-receiver -verbose
+
+# Send a test log in another terminal (defaults to localhost:4317)
+go run cmd/testlog/main.go
+
+# Or specify a custom endpoint
+go run cmd/testlog/main.go -endpoint localhost:4317
+```
+
+The test log includes TAS-like attributes (application_name, organization_name, space_name) to exercise transformations.
+
 ## Deploy to TAS/Cloud Foundry
 
 ### Prerequisites
