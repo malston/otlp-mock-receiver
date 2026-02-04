@@ -265,6 +265,8 @@ receivers:
 
 processors:
   # Filter out the receiver's own logs to prevent infinite loop
+  # NOTE: Verify the attribute key matches your TAS version (e.g., cf.app.name,
+  # cloudfoundry.app.name, or application_name). Check your logs to confirm.
   filter:
     logs:
       exclude:
