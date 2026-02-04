@@ -61,7 +61,7 @@ Add configurable sampling to reduce debug log volume while keeping all error/war
 
 ```bash
 go test ./transform/... -v -run TestSampling
-./otlp-mock-receiver -sample-rate 10 -sample-debug-only
+go build && ./otlp-mock-receiver -sample-rate 10 -sample-debug-only
 ```
 
 **Solution:** [550b05f](https://github.com/malston/otlp-mock-receiver/commit/550b05f)
@@ -104,7 +104,7 @@ Extend the existing `DetermineIndex` function to support configurable routing ru
 
 ```bash
 go test ./routing/... -v
-./otlp-mock-receiver -verbose  # Should show "Routed to: tas_xxx via rule: yyy"
+go build && ./otlp-mock-receiver -verbose  # Should show "Routed to: tas_xxx via rule: yyy"
 ```
 
 **Solution:** [d92e215](https://github.com/malston/otlp-mock-receiver/commit/d92e215)
@@ -136,7 +136,7 @@ Make the existing `ShouldAllow` function configurable via CLI and add metrics fo
 go test ./allowlist/... -v
 # Create allowlist
 echo -e "my-app\nother-app" > /tmp/allowlist.txt
-./otlp-mock-receiver -allowlist /tmp/allowlist.txt -verbose
+go build && ./otlp-mock-receiver -allowlist /tmp/allowlist.txt -verbose
 # In another terminal, modify allowlist and verify reload
 ```
 
@@ -170,7 +170,7 @@ Expose Prometheus-compatible metrics for operational monitoring.
 
 ```bash
 go test ./metrics/... -v
-./otlp-mock-receiver
+go build && ./otlp-mock-receiver
 curl http://localhost:4318/metrics | grep otlp_receiver
 ```
 
@@ -226,7 +226,7 @@ Add file output for transformed logs in JSON format for offline analysis.
 
 ```bash
 go test ./output/... -v
-./otlp-mock-receiver -output-file /tmp/logs.jsonl -output-format jsonl
+go build && ./otlp-mock-receiver -output-file /tmp/logs.jsonl -output-format jsonl
 # Send some logs, then:
 cat /tmp/logs.jsonl | jq .  # Should be valid JSON per line
 ```
