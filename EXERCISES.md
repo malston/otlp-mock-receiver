@@ -133,6 +133,7 @@ Make the existing `ShouldAllow` function configurable via CLI and add metrics fo
 ### Verification
 
 ```bash
+go test ./allowlist/... -v
 # Create allowlist
 echo -e "my-app\nother-app" > /tmp/allowlist.txt
 ./otlp-mock-receiver -allowlist /tmp/allowlist.txt -verbose
@@ -168,6 +169,7 @@ Expose Prometheus-compatible metrics for operational monitoring.
 ### Verification
 
 ```bash
+go test ./metrics/... -v
 ./otlp-mock-receiver
 curl http://localhost:4318/metrics | grep otlp_receiver
 ```
@@ -223,6 +225,7 @@ Add file output for transformed logs in JSON format for offline analysis.
 ### Verification
 
 ```bash
+go test ./output/... -v
 ./otlp-mock-receiver -output-file /tmp/logs.jsonl -output-format jsonl
 # Send some logs, then:
 cat /tmp/logs.jsonl | jq .  # Should be valid JSON per line
