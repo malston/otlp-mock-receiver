@@ -81,10 +81,24 @@ Multiplexed gRPC+HTTP server listening on :8080
 
 ### Step 4: Send a Test Log
 
-Create a test script to send an OTLP log:
+Create a test script to send an OTLP log. Save this as `test_log.go` and run it from a Go module directory:
+
+```bash
+# Option A: Run from within the otlp-mock-receiver project directory
+cd /path/to/otlp-mock-receiver
+# Create test_log.go here, then:
+go run test_log.go
+
+# Option B: Create a standalone module for the test script
+mkdir otlp-test && cd otlp-test
+# Create test_log.go here, then:
+go mod init otlp-test
+go mod tidy
+go run test_log.go
+```
 
 ```go
-// test_log.go - run with: go run test_log.go
+// test_log.go
 package main
 
 import (
